@@ -1,0 +1,6 @@
+#ifndef PARAMETERS_H
+#define PARAMETERS_H
+
+int CACHE_SIZE=100;
+
+#endif // PARAMETERS_H
