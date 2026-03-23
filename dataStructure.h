@@ -1,4 +1,4 @@
-#ifndef DATASTRUCTURE_H
+﻿#ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
 #include "parameters.h"
 
@@ -58,6 +58,7 @@ class mapGraphBase
 private:
     int numOfNodes;
     int numOfEdges;
+    int m_allocatedNodeCount;// 【新增】记录分配的节点数组容量
     mapNode* mainGraph;
     EdgeAttr* edgeAttrs;
     int nextEdgeID;//下一个新边ID（用于自动编号？）
@@ -65,6 +66,8 @@ private:
     int mapMinY, mapMaxY;    // 地图的 y 坐标范围（最小/最大 y）
     cacheNode* cache=new cacheNode[CACHE_SIZE];
 public:
+    mapGraphBase(int nodes = 0, int edges = 0, mapNode* graph = nullptr);
+    ~mapGraphBase();
     /*不确定要不要纯虚函数先放这吧
     virtual int getNumOfNodes() = 0;
     virtual int getNumOfEdges()=0;
