@@ -1,6 +1,6 @@
 #ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
-
+#include "parameters.h"
 
 struct mapNode
 {
@@ -38,7 +38,7 @@ class mapGraphBase
     int numOfNodes;
     int numOfEdges;
     mapNode* mainGraph;
-    int cacheDistance[100];
+    cacheNode* cache=new cacheNode[CACHE_SIZE];
 public:
     virtual int getNumOfNodes()=0;
     virtual int getNumOfEdges()=0;
