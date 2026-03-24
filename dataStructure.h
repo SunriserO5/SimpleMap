@@ -1,4 +1,4 @@
-﻿#ifndef DATASTRUCTURE_H
+#ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
 #include "parameters.h"
 
@@ -38,7 +38,7 @@ struct EdgeAttr {
     int fromNodeID;//边的起点
     int toNodeID;//边的终点
     double length;//边的长度（计算用？）
-    double speedlimit;//限速
+    double speedLimit;//限速
     double capacity;//路的容量
     double congestion;//拥堵程度
     //构造函数：初始化边，默认限速 10.0，容量为长度*0.8，拥堵为 0.0
