@@ -10,13 +10,14 @@ struct mapNode
     int numOfNeighbour;
     int* Neighbour;
     int* distanceToNeighbour;
-    mapNode(int id=-1,int x=-1,int y=-1,int neighbours=0){
+    mapNode(int id=-1,int x=-1,int y=-1,int /*neighbours*/=0){
         nodeID=id;
         x_coordinate=x;
         y_coordinate=y;
-        numOfNeighbour=neighbours;
-        Neighbour=new int[neighbours];
-        distanceToNeighbour=new int[neighbours];
+        numOfNeighbour=0;
+        Neighbour=nullptr;
+        distanceToNeighbour=nullptr;
+        // neighbours 参数保留用于外部构造，实际邻居通过 addOneWayEdge 动态添加
     }
 };
 
@@ -40,6 +41,7 @@ struct EdgeAttr {
     double length;//边的长度（计算用？）
     double speedLimit;//限速
     double capacity;//路的容量
+    double currentCars;//当前车辆数
     double congestion;//拥堵程度
     //构造函数：初始化边，默认限速 10.0，容量为长度*0.8，拥堵为 0.0
     EdgeAttr(int id = -1, int from = -1, int to = -1, double len = 0) {
@@ -49,6 +51,7 @@ struct EdgeAttr {
         length = len;
         speedLimit = 10.0;
         capacity = len * 0.8;
+        currentCars = 0.0;
         congestion = 0.0;
     }
 };
@@ -62,27 +65,19 @@ private:
     mapNode* mainGraph;
     EdgeAttr* edgeAttrs;
     int nextEdgeID;//下一个新边ID（用于自动编号？）
+    int m_allocatedEdgeCount;//分配的边数组容量
     int mapMinX, mapMaxX;    // 地图的 x 坐标范围（最小/最大 x）
     int mapMinY, mapMaxY;    // 地图的 y 坐标范围（最小/最大 y）
-    cacheNode* cache=new cacheNode[CACHE_SIZE];
+    cacheNode* cache;
 public:
     mapGraphBase(int nodes = 0, int edges = 0, mapNode* graph = nullptr);
     ~mapGraphBase();
-    /*不确定要不要纯虚函数先放这吧
-    virtual int getNumOfNodes() = 0;
-    virtual int getNumOfEdges()=0;
-    virtual mapNode* getMainGraph()=0;
-    virtual int* getCoordinate(int nodeID)=0;
-    mapGraphBase(int nodes=0,int edges=0,mapNode* graph=nullptr);
-    ~mapGraphBase();
-    virtual int getPath(int nodeID1,int nodeID2)=0;*/
+
     int getNumOfNodes();
     int getNumOfEdges();
     mapNode* getMainGraph();
     int* getCoordinate(int nodeID);
     int getPath(int nodeID1, int nodeID2);
-    mapGraphBase(int nodes = 0, int edges = 0, mapNode* graph = nullptr);
-    ~mapGraphBase();
     //地图生成
     bool generateGridMap(int mapWidth, int mapHeight, int nodeColCount, int nodeRowCount);//生成网格状地图
     bool generateRandomMap(int mapWidth, int mapHeight, int totalNodeCount);//生成随机地图
@@ -114,6 +109,11 @@ private:
     int calculateDistance(int x1, int y1, int x2, int y2); // 计算两点之间的距离
     void allocateMainGraphMemory(int nodeCount); // 分配节点数组内存
     void freeMainGraphMemory();                  // 释放节点数组内存
+    void removeCrossingEdges();                  // 检测并删除交叉边
+    void removeEdge(int edgeIndex);              // 按索引删除边
+    void removeNeighbour(int nodeID, int neighbourID); // 从节点邻居列表中删除指定邻居
+    bool segmentsIntersect(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4); // 线段交叉检测
+    void ensureConnectivity();                   // BFS 确保图连通，不连通则补连
 
 };
 

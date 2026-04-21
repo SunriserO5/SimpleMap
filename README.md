@@ -1,149 +1,129 @@
-# SimpleMap导航系统设计
-车载导航系统是在城市中驾车的好帮手，不仅能够计算出到达目的地的最优路线，而且可以显示当前位置附近的一些附加信息，比如附近的加油站，餐馆等等。请设计一款导航软件，实现导航系统的核心功能。
+# SimpleMap
 
-## 目标用户
-汽车司机
+一个基于 C++ 的地图生成与路径规划课程项目，核心目标是为车载导航场景提供：
 
-## 数据配置：
-导航系统中的地图可以抽象为一个图，地点信息和路径信息可以抽象为图中的顶点和边。请设计算法，来产生模拟的地图数据：</br>
-a)	随机产生N个二维平面上的顶点（N>=10000），每个顶点对应地图中的一个地点</br>
-b)	对于每个地点x，随机建立若干个连边到x附近的地点。每条连边代表一条路径，路径的长度等于边的两个顶点之间的二维坐标距离。</br>
-c)	模拟数据必须保证，产生的图是一个连通图，并且道路之间不应有不合理的交叉。</br>
+- 可控地图生成（网格/随机）
+- 图结构管理与校验
+- 最短路径计算（Dijkstra / A*）
+- 面向路况权重的扩展能力
 
-## 功能要求：
-F1. 地图显示功能。输入一个坐标，显示距离该坐标最近的100个顶点以及相关联的边。关于如何用vc++画图，或java画图，请在baidu或google上查找相关方法，或者借阅相关的参考书。</br>
-F2. 地图缩放功能。提示：地图缩的越小，屏幕上显示的点数就越多，但是太多的点，会看不清楚。所以可以考虑只选择一个单元区域内只显示一个代表的点。</br>
-F2. 任意指定两个地点A和B，能计算出A到B的最短路径。并将该最短路径经过的顶点以及连边显示出来。</br>
-F3. 模拟车流。请为每条连边增加两个属性：车容量v（饱和状态下这条路所能容纳的汽车的数量）、当前在这条路上的车辆数目n（n>v时为超负荷运作）。假设该路的长度为L，则该路的通行时间可模拟为cLf(n/v)，其中c是常数；f(x)是一个分段函数, x小于等于某个常数时，f(x) = 1，当x大于该常数时，f(x) = 1+ex。每条道路的车容量v和道路的长度L为预先指定的固定参数。请模拟产生汽车在地图中行驶，为简化模型假设在同一条路上每架汽车穿越该路的时间均等于cLf(n/v)。要求实现模拟车流的动态变化，任意时刻，给定一个坐标，能在界面上显示该坐标附近的所有路径，并动态显示各个路径上的车流量的大小（可用不同颜色或其他方法区分车流量的大小级别）。</br>
-F4. 综合考虑路况的最短路径。任意时刻，指定两个地点A和B，能根据当前的路况，计算出从A到B最短行车时间，以及相应的最佳路径，并在界面上，将该最短路径经过的顶点以及连边显示出来。
+## 当前状态总览
 
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| 图数据结构 | 已完成 | `mapNode` + `EdgeAttr` + `mapGraphBase` 基本可用 |
+| 网格地图生成 | 已完成 | 支持按行列生成并自动连边 |
+| 随机地图生成 | 已完成 | 随机点 + K 近邻连边 + 去交叉 + 连通性补边 |
+| 路径规划（距离） | 已完成 | `PathFinder::dijkstra` 与 `PathFinder::aStar` |
+| 路况权重路径 | 已完成 | 支持按 `c * L * f(n/v)` 计算边权 |
+| 基础数据校验 | 已完成 | `isMapFullyConnected`、`isDataValid` |
+| JSON 持久化 | 未完成 | 接口在头文件中暂未启用 |
+| 可视化界面 | 未完成 | 当前仓库仅后端算法与数据结构 |
+| 自动化测试 | 未完成 | 暂无测试工程 |
 
+## 本轮已收尾内容（2026-04-21）
 
-# 车载导航系统 - 地图与路径规划模块
+1. C++11 兼容性修复
+- 将 `parameters.h` 中缓存常量改为 C++11 可用定义。
+- 将 `pathfinding.cpp` 中结构化绑定改为 C++11 写法。
 
-基于 C++ 实现的数据结构大作业，包含完整的地图生成、存储、路径规划与车流模拟功能。
+2. 编译告警收敛
+- 处理了可见的未使用参数告警，减少编译噪音。
 
-## 目录
+3. `getPath` 占位逻辑补全
+- 不再返回直线距离占位值。
+- 改为调用 Dijkstra 并累加路径边长，不可达时返回 `-1`。
 
-- 项目概述
-- 技术栈
-- 功能特性
-- 文件结构
-- 核心数据结构
-- 快速开始
-- API 文档
-- 使用示例
+## 目录结构
 
-## 项目概述
-
-本项目实现了一个完整的车载导航系统核心后端，包括：
-
-- 支持生成≥10000 个节点的网格地图或无交叉随机地图（Delaunay 三角剖分）
-- 基于邻接表的高效图存储
-- 堆优化 Dijkstra 算法与 A * 启发式搜索算法
-- JSON 格式的地图数据持久化
-- 地图连通性验证与数据校验
-- 预留车流模拟与动态路况接口
-
-## 技术栈
-
-- 编程语言：C++ (C++11 及以上)
-- 开发环境：Visual Studio 2022 (MSVC)
-- 第三方库：nlohmann/json (Header-Only)
-- 核心算法：邻接表、堆优化 Dijkstra、A*、BFS、Delaunay 三角剖分
-
-## 功能特性
-
-### 地图生成
-- 网格地图生成：生成均匀分布的网格状地图，100% 全连通，无交叉
-- 随机地图生成：生成带最小间距约束的随机节点，通过 Delaunay 三角剖分实现无交叉连边
-- 自动属性分配：自动计算道路长度、限速、容量等属性
-
-### 图数据管理
-- 邻接表存储：高效的图存储结构，支持 O(1) 节点查询与 O(k) 邻边遍历（k 为邻居数）
-- 标准化接口：提供完整的节点 / 边查询、修改接口
-- 内存安全：自动管理动态内存，无内存泄漏
-
-### 路径规划
-- 堆优化 Dijkstra 算法：时间复杂度 O(m log n)，支持最短距离路径查询
-- A * 启发式搜索算法：基于欧氏距离启发函数，比 Dijkstra 快 3-10 倍，同样保证最优解
-- 动态路况支持：支持基于拥堵系数的动态权重路径规划
-
-### 数据持久化
-- JSON 保存：将地图数据（节点、边、元数据）保存为人类可读的 JSON 文件
-- JSON 加载：从 JSON 文件快速重建地图，支持测试结果复现
-- 数据校验：加载后自动验证数据完整性与合理性
-
-### 验证与辅助
-- BFS 全连通验证：保证生成的地图无孤立节点 / 子图
-- 数据合理性检查：自动验证节点 ID、坐标范围、距离非负等
-
-## 文件结构
-导航系统项目/
-├── datastructure.h # 核心头文件，定义所有数据结构与类接口
-├── datastructure.cpp # 核心源文件，实现所有功能
+```text
+SimpleMap/
+├── dataStructure.h      # 核心数据结构与图管理接口
+├── dataStructure.cpp    # 图管理、地图生成、连通性与校验实现
+├── pathfinding.h        # Dijkstra / A* 接口
+├── pathfinding.cpp      # 路径规划与路况权重实现
+├── parameters.h         # 全局参数（CACHE_SIZE）
 ├── thirdparty/
-│ └── json.hpp # nlohmann/json库（Header-Only）
-├── main.cpp # 测试主函数
-└── navi_map.json # （生成后）地图数据文件
+│   └── json.hpp         # 预留 JSON 依赖（当前未接入存取逻辑）
+└── README.md
+```
 
-## 核心数据结构
+## 核心设计
 
-```cpp
-// 地图节点
-struct mapNode {
-    int nodeID;              // 节点唯一ID
-    int x_coordinate;        // X坐标
-    int y_coordinate;        // Y坐标
-    int numOfNeighbour;      // 邻居数量
-    int* Neighbour;          // 邻居ID数组
-    int* distanceToNeighbour;// 到邻居的距离数组
-};
+### 1) 图存储模型
 
-// 道路边属性
-struct EdgeAttr {
-    int edgeID;              // 边唯一ID
-    int fromNodeID;          // 起点ID
-    int toNodeID;            // 终点ID
-    double length;           // 道路长度
-    double speedLimit;       // 限速 (m/s)
-    double capacity;         // 最大车容量
-    double currentCars;      // 当前车辆数
-    double congestion;       // 拥堵系数 (0-1)
-};
+- 节点数组：`mapNode* mainGraph`
+- 每个节点维护动态邻接数组：`Neighbour` / `distanceToNeighbour`
+- 边属性数组：`EdgeAttr* edgeAttrs`
 
-// 核心管理类
-class mapGraphBase {
-public:
-    // 构造与析构
-    mapGraphBase();
-    ~mapGraphBase();
+这是一种“节点数组 + 邻接数组”的轻量实现，便于课程场景下理解与调试。
 
-    // 地图生成
-    bool generateGridMap(int mapWidth, int mapHeight, int nodeColCount, int nodeRowCount);
-    bool generateRandomMap(int mapWidth, int mapHeight, int totalNodeCount);
+### 2) 地图生成策略
 
-    // 数据查询
-    int getNumOfNodes();
-    int getNumOfEdges();
-    mapNode* getNodeById(int nodeID);
-    EdgeAttr* getEdgeById(int edgeID);
+- 网格地图：规则坐标生成 + 右/下邻居双向连边
+- 随机地图：
+  - 最小间距随机采样
+  - K 近邻连边
+  - 线段相交检测并删边
+  - BFS 连通分量检测与补边
 
-    // 路径规划
-    std::vector<int> findShortestPath_Dijkstra(int startId, int endId, bool useCongestion = false);
-    std::vector<int> findShortestPath_AStar(int startId, int endId, bool useCongestion = false);
+### 3) 路径规划策略
 
-    // 数据持久化
-    bool saveMapToFile(const char* filePath);
-    bool loadMapFromFile(const char* filePath);
+- Dijkstra：用于全局最短路
+- A*：启发函数为欧氏距离
+- 可切换权重：
+  - 纯长度模式：`length`
+  - 路况模式：`c * L * f(n/v)`
 
-    // 验证
-    bool isMapFullyConnected();
-    bool isDataValid();
+## 关键接口速览
 
-    // 辅助
-    void clearMap();
-};
+### mapGraphBase
 
+- 生成地图
+  - `generateGridMap(int mapWidth, int mapHeight, int nodeColCount, int nodeRowCount)`
+  - `generateRandomMap(int mapWidth, int mapHeight, int totalNodeCount)`
+- 查询与修改
+  - `getNodeById(int nodeID)`
+  - `getEdgeById(int edgeID)`
+  - `getEdgeByNodes(int fromID, int toID)`
+  - `updateEdgeCongestion(int edgeID, double newCongestion)`
+- 校验
+  - `isMapFullyConnected()`
+  - `isDataValid()`
+- 路径长度
+  - `getPath(int nodeID1, int nodeID2)`
 
+### PathFinder
 
+- `dijkstra(mapGraphBase* graph, int startId, int endId, bool useCongestion = false)`
+- `aStar(mapGraphBase* graph, int startId, int endId, bool useCongestion = false)`
+- `getTravelTime(mapGraphBase* graph, int fromID, int toID, bool useCongestion)`
+
+## 构建说明
+
+## 方案 A：Visual Studio 2022（推荐）
+
+1. 新建空 C++ 项目。
+2. 将仓库中的 `.h/.cpp` 添加到项目。
+3. 语言标准设为 C++11 或更高。
+4. 编译运行。
+
+## 方案 B：命令行快速语法检查
+
+```bash
+clang++ -std=c++11 -Wall -Wextra -pedantic -c dataStructure.cpp pathfinding.cpp
+```
+
+说明：该命令仅做编译检查，不包含可执行入口（当前仓库无 `main.cpp`）。
+
+## 已知限制
+
+1. 当前没有 UI 层，实现重点在数据结构和算法。
+2. JSON 存取接口尚未接入实现。
+3. `getPath` 当前返回“路径总长度（int）”，不直接返回节点序列；如需节点序列，请使用 `PathFinder`。
+
+## 建议下一步（未执行）
+
+1. 增加 `main.cpp` 最小演示与回归用例。
+2. 完成 JSON 读写接口并补充数据一致性验证。
+3. 增加大规模（>=10000 节点）性能与内存基准测试。
