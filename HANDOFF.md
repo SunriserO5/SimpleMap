@@ -23,33 +23,44 @@
   - `clang++ -std=c++11 -Wall -Wextra -pedantic -c dataStructure.cpp pathfinding.cpp`
 - 最近一次检查通过，无报错输出。
 
+4. JSON 持久化落地
+- 已启用并实现 `saveMapToFile` / `loadMapFromFile`。
+- 保存内容包含节点、边、基础元数据（如 `nextEdgeID`、边界信息）。
+
+5. 最小可运行入口
+- 新增 `main.cpp`，可直接演示：
+  - 随机地图生成
+  - Dijkstra / A* 路径查询
+  - JSON 保存与加载
+  - 连通性与数据合法性检查
+- 演示命令：
+  - `clang++ -std=c++11 -Wall -Wextra -pedantic dataStructure.cpp pathfinding.cpp main.cpp -o simplemap_demo`
+  - `./simplemap_demo`
+
 ## 3. 仍未完成（有意保留）
 
-1. JSON 持久化
-- 头文件中保存/加载接口仍处于未启用状态。
-
-2. UI 与展示功能
+1. UI 与展示功能
 - 当前仓库不包含可视化地图显示与缩放界面。
 
-3. 自动化测试
+2. 自动化测试
 - 暂无单元测试与回归测试工程。
 
 ## 4. 交接建议
 
-1. 如果目标是可演示版本，先补一个最小 `main.cpp`：
-- 生成地图
-- 打印节点/边数量
-- 跑一条最短路径并输出结果
+1. 如果目标是可演示版本，先扩展现有 `main.cpp`：
+- 增加多个起终点样例
+- 增加拥堵权重模式示例
+- 增加加载失败场景提示
 
 2. 如果目标是课程验收，优先完成：
-- JSON 存取
 - 大规模数据（>=10000 节点）稳定性验证
 - 关键接口错误处理一致化（返回值与日志）
+- JSON 文件兼容性与异常输入测试
 
 ## 5. 注意事项
 
 1. 文件名存在历史重命名轨迹：`dataStricture.cpp -> dataStructure.cpp`。
-2. 当前目录包含 `thirdparty/json.hpp`，但尚未接入读写逻辑。
+2. 当前目录包含 `thirdparty/json.hpp`，并已接入读写逻辑。
 3. 推送前建议再次执行：
 - `git status --short`
 - 确认只提交希望提交的文件。

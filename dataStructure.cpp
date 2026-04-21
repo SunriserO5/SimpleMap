@@ -1,5 +1,6 @@
 ﻿#include"dataStructure.h"
 #include "pathfinding.h"
+#include "thirdparty/json.hpp"
 #include<fstream>
 #include<queue>
 #include<cstring>
@@ -8,6 +9,10 @@
 #include<climits>
 #include<cstdlib>
 #include<stdexcept>
+#include<vector>
+#include<algorithm>
+
+using nlohmann::json;
 
 // ========== 构造 / 析构 ==========
 
@@ -37,6 +42,10 @@ mapGraphBase::mapGraphBase(int nodes, int edges, mapNode* graph) {
 
 mapGraphBase::~mapGraphBase() {
 	clearMap();
+	if (cache != nullptr) {
+		delete[] cache;
+		cache = nullptr;
+	}
 }
 
 // ========== 内存管理 ==========
@@ -93,8 +102,6 @@ void mapGraphBase::clearMap() {
 			cache[i].endNodeID = -1;
 			cache[i].distance = -1;
 		}
-		delete[] cache;
-		cache = nullptr;
 	}
 }
 
@@ -205,6 +212,14 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 		return -1;
 	}
 
+	if (cache != nullptr) {
+		for (int i = 0; i < CACHE_SIZE; i++) {
+			if (cache[i].beginNodeID == nodeID1 && cache[i].endNodeID == nodeID2 && cache[i].distance >= 0) {
+				return cache[i].distance;
+			}
+		}
+	}
+
 	std::vector<int> path = PathFinder::dijkstra(this, nodeID1, nodeID2, false);
 	if (path.empty()) {
 		return -1;
@@ -219,7 +234,34 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 		totalLength += edge->length;
 	}
 
-	return static_cast<int>(totalLength);
+	int resultDistance = static_cast<int>(totalLength);
+
+	if (cache != nullptr) {
+		int targetSlot = -1;
+		for (int i = 0; i < CACHE_SIZE; i++) {
+			if (cache[i].distance < 0) {
+				targetSlot = i;
+				break;
+			}
+		}
+		if (targetSlot < 0) {
+			targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
+			if (targetSlot < 0) {
+				targetSlot += CACHE_SIZE;
+			}
+		}
+
+		if (cache[targetSlot].path != nullptr) {
+			delete[] cache[targetSlot].path;
+			cache[targetSlot].path = nullptr;
+		}
+
+		cache[targetSlot].beginNodeID = nodeID1;
+		cache[targetSlot].endNodeID = nodeID2;
+		cache[targetSlot].distance = resultDistance;
+	}
+
+	return resultDistance;
 }
 
 mapNode* mapGraphBase::getNodeById(int nodeID) {
@@ -252,6 +294,175 @@ bool mapGraphBase::updateEdgeCongestion(int edgeID, double newCongestion) {
 	if (edge == nullptr) return false;
 	edge->congestion = newCongestion;
 	return true;
+}
+
+bool mapGraphBase::saveMapToFile(const char* filePath) {
+	if (filePath == nullptr || std::strlen(filePath) == 0) {
+		return false;
+	}
+
+	try {
+		json root;
+		root["metadata"] = {
+			{ "numOfNodes", numOfNodes },
+			{ "numOfEdges", numOfEdges },
+			{ "nextEdgeID", nextEdgeID },
+			{ "mapMinX", mapMinX },
+			{ "mapMaxX", mapMaxX },
+			{ "mapMinY", mapMinY },
+			{ "mapMaxY", mapMaxY }
+		};
+
+		root["nodes"] = json::array();
+		for (int i = 0; i < numOfNodes; i++) {
+			root["nodes"].push_back({
+				{ "nodeID", mainGraph[i].nodeID },
+				{ "x_coordinate", mainGraph[i].x_coordinate },
+				{ "y_coordinate", mainGraph[i].y_coordinate }
+			});
+		}
+
+		root["edges"] = json::array();
+		for (int i = 0; i < numOfEdges; i++) {
+			root["edges"].push_back({
+				{ "edgeID", edgeAttrs[i].edgeID },
+				{ "fromNodeID", edgeAttrs[i].fromNodeID },
+				{ "toNodeID", edgeAttrs[i].toNodeID },
+				{ "length", edgeAttrs[i].length },
+				{ "speedLimit", edgeAttrs[i].speedLimit },
+				{ "capacity", edgeAttrs[i].capacity },
+				{ "currentCars", edgeAttrs[i].currentCars },
+				{ "congestion", edgeAttrs[i].congestion }
+			});
+		}
+
+		std::ofstream out(filePath);
+		if (!out.is_open()) {
+			return false;
+		}
+		out << root.dump(2);
+		return true;
+	}
+	catch (...) {
+		return false;
+	}
+}
+
+bool mapGraphBase::loadMapFromFile(const char* filePath) {
+	if (filePath == nullptr || std::strlen(filePath) == 0) {
+		return false;
+	}
+
+	try {
+		std::ifstream in(filePath);
+		if (!in.is_open()) {
+			return false;
+		}
+
+		json root;
+		in >> root;
+
+		if (!root.contains("nodes") || !root["nodes"].is_array()) {
+			return false;
+		}
+		if (!root.contains("edges") || !root["edges"].is_array()) {
+			return false;
+		}
+
+		struct NodeRaw {
+			int nodeID;
+			int x;
+			int y;
+		};
+
+		std::vector<NodeRaw> nodes;
+		nodes.reserve(root["nodes"].size());
+
+		for (size_t i = 0; i < root["nodes"].size(); i++) {
+			const json& nodeObj = root["nodes"][i];
+			if (!nodeObj.is_object()) {
+				return false;
+			}
+			if (!nodeObj.contains("nodeID") || !nodeObj.contains("x_coordinate") || !nodeObj.contains("y_coordinate")) {
+				return false;
+			}
+
+			NodeRaw node;
+			node.nodeID = nodeObj["nodeID"].get<int>();
+			node.x = nodeObj["x_coordinate"].get<int>();
+			node.y = nodeObj["y_coordinate"].get<int>();
+			nodes.push_back(node);
+		}
+
+		std::sort(nodes.begin(), nodes.end(), [](const NodeRaw& a, const NodeRaw& b) {
+			return a.nodeID < b.nodeID;
+		});
+
+		for (size_t i = 0; i < nodes.size(); i++) {
+			if (nodes[i].nodeID != static_cast<int>(i)) {
+				return false;
+			}
+		}
+
+		clearMap();
+
+		if (!nodes.empty()) {
+			allocateMainGraphMemory(static_cast<int>(nodes.size()));
+			for (size_t i = 0; i < nodes.size(); i++) {
+				int newID = addNode(nodes[i].x, nodes[i].y);
+				if (newID != static_cast<int>(i)) {
+					clearMap();
+					return false;
+				}
+			}
+		}
+
+		int maxEdgeID = -1;
+		for (size_t i = 0; i < root["edges"].size(); i++) {
+			const json& edgeObj = root["edges"][i];
+			if (!edgeObj.is_object()) {
+				clearMap();
+				return false;
+			}
+			if (!edgeObj.contains("fromNodeID") || !edgeObj.contains("toNodeID")) {
+				clearMap();
+				return false;
+			}
+
+			int fromID = edgeObj["fromNodeID"].get<int>();
+			int toID = edgeObj["toNodeID"].get<int>();
+			if (!addOneWayEdge(fromID, toID)) {
+				clearMap();
+				return false;
+			}
+
+			EdgeAttr& edge = edgeAttrs[numOfEdges - 1];
+			edge.edgeID = edgeObj.value("edgeID", edge.edgeID);
+			edge.length = edgeObj.value("length", edge.length);
+			edge.speedLimit = edgeObj.value("speedLimit", edge.speedLimit);
+			edge.capacity = edgeObj.value("capacity", edge.capacity);
+			edge.currentCars = edgeObj.value("currentCars", edge.currentCars);
+			edge.congestion = edgeObj.value("congestion", edge.congestion);
+
+			if (edge.edgeID > maxEdgeID) {
+				maxEdgeID = edge.edgeID;
+			}
+		}
+
+		nextEdgeID = maxEdgeID + 1;
+		if (root.contains("metadata") && root["metadata"].is_object()) {
+			int savedNextEdgeID = root["metadata"].value("nextEdgeID", nextEdgeID);
+			if (savedNextEdgeID > nextEdgeID) {
+				nextEdgeID = savedNextEdgeID;
+			}
+		}
+
+		return isDataValid();
+	}
+	catch (...) {
+		clearMap();
+		return false;
+	}
 }
 
 // ========== 辅助 ==========

@@ -89,12 +89,9 @@ public:
     EdgeAttr* getAllEdgeAttrs();
     bool updateEdgeCongestion(int edgeID, double newCongestion);//更新路的拥堵程度
 
-    //数据持久化
-    /*不知道要不要用json先放这
-   
+    // 数据持久化
     bool saveMapToFile(const char* filePath);
     bool loadMapFromFile(const char* filePath);
-    */
 
     // 数据验证
     bool isMapFullyConnected();//检查地图是否全连通（是否所有点都能互相到达）

@@ -23,3 +23,16 @@ Debug/
 Release/
 x64/
 x86/
+
+# macOS / C++ runtime artifacts
+*.dSYM/
+*.o
+*.out
+
+# Local binaries
+simplemap_demo
+test_data_generator
+
+# Generated map data files
+sample_map.json
+test_map_*.json

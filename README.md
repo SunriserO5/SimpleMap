@@ -17,7 +17,8 @@
 | 路径规划（距离） | 已完成 | `PathFinder::dijkstra` 与 `PathFinder::aStar` |
 | 路况权重路径 | 已完成 | 支持按 `c * L * f(n/v)` 计算边权 |
 | 基础数据校验 | 已完成 | `isMapFullyConnected`、`isDataValid` |
-| JSON 持久化 | 未完成 | 接口在头文件中暂未启用 |
+| JSON 持久化 | 已完成 | 支持保存/加载节点、边和元数据 |
+| CLI 交互界面 | 已完成 | 主菜单 + 路径测试子菜单 + 导入/生成双流程 |
 | 可视化界面 | 未完成 | 当前仓库仅后端算法与数据结构 |
 | 自动化测试 | 未完成 | 暂无测试工程 |
 
@@ -34,6 +35,18 @@
 - 不再返回直线距离占位值。
 - 改为调用 Dijkstra 并累加路径边长，不可达时返回 `-1`。
 
+4. 可运行演示入口
+- 新增 `main.cpp`，串联随机地图生成、Dijkstra/A*、JSON 保存与加载验证。
+
+5. CLI 交互体验增强
+- 主菜单支持：导入地图、生成随机地图并测试、退出。
+- 路径测试子菜单支持：测试 Dijkstra / 测试 A* / 返回。
+- 路径结果支持逐节点输出：每段距离与累计距离。
+
+6. 路径缓存接入
+- `getPath` 已接入缓存查询与回填逻辑。
+- 在 CLI 中可观察同一路径重复查询的耗时下降。
+
 ## 目录结构
 
 ```text
@@ -43,8 +56,10 @@ SimpleMap/
 ├── pathfinding.h        # Dijkstra / A* 接口
 ├── pathfinding.cpp      # 路径规划与路况权重实现
 ├── parameters.h         # 全局参数（CACHE_SIZE）
+├── main.cpp             # CLI 主入口（主菜单 + 路径测试子菜单）
+├── test_data_generator.cpp  # 测试数据生成器（默认可生成 1000 节点地图）
 ├── thirdparty/
-│   └── json.hpp         # 预留 JSON 依赖（当前未接入存取逻辑）
+│   └── json.hpp         # nlohmann/json 头文件
 └── README.md
 ```
 
@@ -114,16 +129,37 @@ SimpleMap/
 clang++ -std=c++11 -Wall -Wextra -pedantic -c dataStructure.cpp pathfinding.cpp
 ```
 
-说明：该命令仅做编译检查，不包含可执行入口（当前仓库无 `main.cpp`）。
+说明：该命令仅做编译检查，不生成完整演示可执行文件。
+
+## 方案 C：运行演示程序
+
+```bash
+/usr/bin/g++ -std=c++11 -Wall -Wextra -pedantic -g dataStructure.cpp pathfinding.cpp main.cpp -o simplemap_demo
+./simplemap_demo
+```
+
+CLI 中可以：
+
+1. 导入已有地图 JSON 后做路径测试。
+2. 生成随机地图后进入路径测试子菜单。
+3. 输出 Dijkstra/A* 的路径节点详情、分段距离、累计距离与耗时。
+
+运行过程中如果调用保存流程，会在项目根目录生成 `sample_map.json`。
+
+## 方案 D：生成测试数据（1000 节点示例）
+
+```bash
+/usr/bin/g++ -std=c++11 -Wall -Wextra -pedantic -g dataStructure.cpp pathfinding.cpp test_data_generator.cpp -o test_data_generator
+./test_data_generator --nodes 1000 --output test_map_1000.json
+```
 
 ## 已知限制
 
 1. 当前没有 UI 层，实现重点在数据结构和算法。
-2. JSON 存取接口尚未接入实现。
-3. `getPath` 当前返回“路径总长度（int）”，不直接返回节点序列；如需节点序列，请使用 `PathFinder`。
+2. `getPath` 返回“路径总长度（int）”，缓存的目标是距离值而非完整节点序列；如需节点序列请使用 `PathFinder`。
 
 ## 建议下一步（未执行）
 
-1. 增加 `main.cpp` 最小演示与回归用例。
-2. 完成 JSON 读写接口并补充数据一致性验证。
+1. 基于现有 CLI 增加更多回归用例（异常输入、不可达场景、边界节点）。
+2. 增加 JSON 兼容性与异常文件处理测试（字段缺失、类型错误、版本兼容）。
 3. 增加大规模（>=10000 节点）性能与内存基准测试。
