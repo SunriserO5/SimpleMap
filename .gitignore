@@ -30,6 +30,7 @@ x86/
 *.out
 
 # Local binaries
+main
 simplemap_demo
 test_data_generator
 
