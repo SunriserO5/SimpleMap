@@ -55,6 +55,8 @@ void mapGraphBase::allocateMainGraphMemory(int nodeCount) {
 	m_allocatedNodeCount = nodeCount;
 	// edgeAttrs 初始分配 nodeCount*4 容量（预估平均每节点 4 条边）
 	// 实际边数可能超出，addOneWayEdge 中动态扩容
+
+	//todo
 	int initialEdgeCapacity = nodeCount * 4;
 	edgeAttrs = new EdgeAttr[initialEdgeCapacity];
 	m_allocatedEdgeCount = initialEdgeCapacity;
@@ -211,21 +213,29 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	if (nodeID1 < 0 || nodeID1 >= numOfNodes || nodeID2 < 0 || nodeID2 >= numOfNodes) {
 		return -1;
 	}
-
+	int targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
+	if (targetSlot < 0) {
+		targetSlot += CACHE_SIZE;
+	}
 	if (cache != nullptr) {
+		if (cache[targetSlot].beginNodeID == nodeID1 && cache[targetSlot].endNodeID == nodeID2 && cache[targetSlot].distance >= 0)
+			return cache[targetSlot].distance;
+	}
+	/*if (cache != nullptr) {
 		for (int i = 0; i < CACHE_SIZE; i++) {
 			if (cache[i].beginNodeID == nodeID1 && cache[i].endNodeID == nodeID2 && cache[i].distance >= 0) {
 				return cache[i].distance;
 			}
 		}
-	}
-
+	}*/
+	//未命中cache
 	std::vector<int> path = PathFinder::dijkstra(this, nodeID1, nodeID2, false);
 	if (path.empty()) {
 		return -1;
 	}
 
 	double totalLength = 0.0;
+
 	for (size_t i = 1; i < path.size(); i++) {
 		EdgeAttr* edge = getEdgeByNodes(path[i - 1], path[i]);
 		if (edge == nullptr) {
@@ -237,20 +247,10 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	int resultDistance = static_cast<int>(totalLength);
 
 	if (cache != nullptr) {
-		int targetSlot = -1;
-		for (int i = 0; i < CACHE_SIZE; i++) {
-			if (cache[i].distance < 0) {
-				targetSlot = i;
-				break;
-			}
-		}
+		int targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
 		if (targetSlot < 0) {
-			targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
-			if (targetSlot < 0) {
-				targetSlot += CACHE_SIZE;
-			}
+			targetSlot += CACHE_SIZE;
 		}
-
 		if (cache[targetSlot].path != nullptr) {
 			delete[] cache[targetSlot].path;
 			cache[targetSlot].path = nullptr;
@@ -319,7 +319,7 @@ bool mapGraphBase::saveMapToFile(const char* filePath) {
 				{ "nodeID", mainGraph[i].nodeID },
 				{ "x_coordinate", mainGraph[i].x_coordinate },
 				{ "y_coordinate", mainGraph[i].y_coordinate }
-			});
+				});
 		}
 
 		root["edges"] = json::array();
@@ -333,7 +333,7 @@ bool mapGraphBase::saveMapToFile(const char* filePath) {
 				{ "capacity", edgeAttrs[i].capacity },
 				{ "currentCars", edgeAttrs[i].currentCars },
 				{ "congestion", edgeAttrs[i].congestion }
-			});
+				});
 		}
 
 		std::ofstream out(filePath);
@@ -396,7 +396,7 @@ bool mapGraphBase::loadMapFromFile(const char* filePath) {
 
 		std::sort(nodes.begin(), nodes.end(), [](const NodeRaw& a, const NodeRaw& b) {
 			return a.nodeID < b.nodeID;
-		});
+			});
 
 		for (size_t i = 0; i < nodes.size(); i++) {
 			if (nodes[i].nodeID != static_cast<int>(i)) {
@@ -564,7 +564,8 @@ bool mapGraphBase::generateRandomMap(int mapWidth, int mapHeight, int totalNodeC
 				nearestIDs[nearestCount] = j;
 				nearestDists[nearestCount] = dist;
 				nearestCount++;
-			} else {
+			}
+			else {
 				// 找到当前最远的那个，如果新距离更近则替换
 				int maxIdx = 0;
 				for (int k = 1; k < K; k++) {
@@ -670,7 +671,7 @@ bool mapGraphBase::segmentsIntersect(int x1, int y1, int x2, int y2, int x3, int
 	// 跨立实验：判断两线段是否相交
 	auto cross = [](int ox, int oy, int ax, int ay, int bx, int by) -> long long {
 		return (long long)(ax - ox) * (by - oy) - (long long)(ay - oy) * (bx - ox);
-	};
+		};
 
 	long long d1 = cross(x3, y3, x4, y4, x1, y1);
 	long long d2 = cross(x3, y3, x4, y4, x2, y2);
