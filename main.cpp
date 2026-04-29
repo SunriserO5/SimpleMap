@@ -1,3 +1,4 @@
+﻿
 #include "dataStructure.h"
 #include "pathfinding.h"
 
@@ -22,7 +23,8 @@ static int readIntWithRetry(const char* prompt, int minValue, const char* ruleHi
                 return value;
             }
             std::cout << "[Error] 输入值不合法：" << ruleHint << std::endl;
-        } else {
+        }
+        else {
             std::cout << "[Error] 请输入整数。" << std::endl;
         }
         clearInputState();
@@ -39,8 +41,9 @@ static int readIntInRangeWithRetry(const char* prompt, int minValue, int maxValu
                 return value;
             }
             std::cout << "[Error] 输入值不合法：请输入范围 ["
-                      << minValue << ", " << maxValue << "] 内的整数。" << std::endl;
-        } else {
+                << minValue << ", " << maxValue << "] 内的整数。" << std::endl;
+        }
+        else {
             std::cout << "[Error] 请输入整数。" << std::endl;
         }
         clearInputState();
@@ -73,9 +76,9 @@ static double computePathLength(mapGraphBase& graph, const std::vector<int>& pat
 
 static void printMapSummary(mapGraphBase& graph) {
     std::cout << "[Map] nodes=" << graph.getNumOfNodes()
-              << ", edges=" << graph.getNumOfEdges() << std::endl;
+        << ", edges=" << graph.getNumOfEdges() << std::endl;
     std::cout << "[Map] connected=" << (graph.isMapFullyConnected() ? "true" : "false")
-              << ", dataValid=" << (graph.isDataValid() ? "true" : "false") << std::endl;
+        << ", dataValid=" << (graph.isDataValid() ? "true" : "false") << std::endl;
 }
 
 static void printPathDetail(mapGraphBase& graph, const std::vector<int>& path) {
@@ -87,10 +90,10 @@ static void printPathDetail(mapGraphBase& graph, const std::vector<int>& path) {
     std::cout << "[PathDetail] index  nodeID  segmentDist  cumulativeDist" << std::endl;
     double cumulative = 0.0;
     std::cout << "[PathDetail] "
-              << std::setw(5) << 0 << "  "
-              << std::setw(6) << path[0] << "  "
-              << std::setw(11) << 0.0 << "  "
-              << std::setw(14) << cumulative << std::endl;
+        << std::setw(5) << 0 << "  "
+        << std::setw(6) << path[0] << "  "
+        << std::setw(11) << 0.0 << "  "
+        << std::setw(14) << cumulative << std::endl;
 
     for (size_t i = 1; i < path.size(); i++) {
         EdgeAttr* edge = graph.getEdgeByNodes(path[i - 1], path[i]);
@@ -99,10 +102,10 @@ static void printPathDetail(mapGraphBase& graph, const std::vector<int>& path) {
             cumulative += segment;
         }
         std::cout << "[PathDetail] "
-                  << std::setw(5) << i << "  "
-                  << std::setw(6) << path[i] << "  "
-                  << std::setw(11) << segment << "  "
-                  << std::setw(14) << cumulative << std::endl;
+            << std::setw(5) << i << "  "
+            << std::setw(6) << path[i] << "  "
+            << std::setw(11) << segment << "  "
+            << std::setw(14) << cumulative << std::endl;
     }
 }
 
@@ -127,11 +130,11 @@ static void runPathAlgorithmTest(mapGraphBase& graph, bool useAStar) {
     double totalLength = computePathLength(graph, path);
 
     std::cout << "[Path] algorithm=" << (useAStar ? "A*" : "Dijkstra")
-              << ", startID=" << startID
-              << ", endID=" << endID
-              << ", nodes=" << path.size()
-              << ", length=" << totalLength
-              << ", timeMs=" << elapsedMs << std::endl;
+        << ", startID=" << startID
+        << ", endID=" << endID
+        << ", nodes=" << path.size()
+        << ", length=" << totalLength
+        << ", timeMs=" << elapsedMs << std::endl;
 
     printPathDetail(graph, path);
 
@@ -147,9 +150,9 @@ static void runPathAlgorithmTest(mapGraphBase& graph, bool useAStar) {
     double cacheMs2 = std::chrono::duration<double, std::milli>(cacheEnd2 - cacheBegin2).count();
 
     std::cout << "[Cache] getPath firstCallLength=" << cachedLength1
-              << ", secondCallLength=" << cachedLength2
-              << ", firstCallMs=" << cacheMs1
-              << ", secondCallMs=" << cacheMs2 << std::endl;
+        << ", secondCallLength=" << cachedLength2
+        << ", firstCallMs=" << cacheMs1
+        << ", secondCallMs=" << cacheMs2 << std::endl;
 }
 
 static void runPathTestSubMenu(mapGraphBase& graph) {
@@ -163,9 +166,11 @@ static void runPathTestSubMenu(mapGraphBase& graph) {
         int choice = readIntInRangeWithRetry("输入选项编号 (1/2/3): ", 1, 3);
         if (choice == 1) {
             runPathAlgorithmTest(graph, false);
-        } else if (choice == 2) {
+        }
+        else if (choice == 2) {
             runPathAlgorithmTest(graph, true);
-        } else {
+        }
+        else {
             break;
         }
     }
@@ -182,8 +187,8 @@ static bool runGenerateRandomMap(mapGraphBase& graph) {
     int totalNodeCount = readIntWithRetry("请输入 totalNodeCount: ", 2, "totalNodeCount 必须 >= 2");
 
     std::cout << "[Info] 已接收参数: width=" << mapWidth
-              << ", height=" << mapHeight
-              << ", nodes=" << totalNodeCount << std::endl;
+        << ", height=" << mapHeight
+        << ", nodes=" << totalNodeCount << std::endl;
 
     if (!graph.generateRandomMap(mapWidth, mapHeight, totalNodeCount)) {
         std::cout << "[Error] generateRandomMap 执行失败。" << std::endl;
@@ -229,16 +234,31 @@ int main() {
             std::cout << "[Info] 地图导入成功。" << std::endl;
             printMapSummary(graph);
             runPathTestSubMenu(graph);
-        } else if (choice == 2) {
+        }
+        else if (choice == 2) {
             if (runGenerateRandomMap(graph)) {
                 std::cout << "[Info] 随机地图生成成功。" << std::endl;
                 printMapSummary(graph);
+
+                // ---------- 新增：保存地图 ----------
+                std::string savePath = readLineWithPrompt("请输入保存路径 (示例: my_map.json，留空跳过): ");
+                if (!savePath.empty()) {
+                    if (graph.saveMapToFile(savePath.c_str())) {
+                        std::cout << "[Info] 地图已保存到: " << savePath << std::endl;
+                    }
+                    else {
+                        std::cout << "[Error] 保存失败。" << std::endl;
+                    }
+                }
+                // ------------------------------------
                 runPathTestSubMenu(graph);
             }
-        } else if (choice == 3) {
+        }
+        else if (choice == 3) {
             std::cout << "[Info] 已退出地图。" << std::endl;
             break;
-        } else {
+        }
+        else {
             std::cout << "[Error] 无效选项，请输入 1/2/3。" << std::endl;
         }
     }

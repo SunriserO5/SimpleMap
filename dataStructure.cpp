@@ -211,15 +211,22 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	if (nodeID1 < 0 || nodeID1 >= numOfNodes || nodeID2 < 0 || nodeID2 >= numOfNodes) {
 		return -1;
 	}
-
+	int targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
+	if (targetSlot < 0) {
+		targetSlot += CACHE_SIZE;
+	}
 	if (cache != nullptr) {
+		if (cache[targetSlot].beginNodeID == nodeID1 && cache[targetSlot].endNodeID == nodeID2 && cache[targetSlot].distance >= 0)
+			return cache[targetSlot].distance;
+	}
+	/*if (cache != nullptr) {
 		for (int i = 0; i < CACHE_SIZE; i++) {
 			if (cache[i].beginNodeID == nodeID1 && cache[i].endNodeID == nodeID2 && cache[i].distance >= 0) {
 				return cache[i].distance;
 			}
 		}
-	}
-
+	}*/
+	//未命中cache
 	std::vector<int> path = PathFinder::dijkstra(this, nodeID1, nodeID2, false);
 	if (path.empty()) {
 		return -1;
@@ -237,18 +244,9 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	int resultDistance = static_cast<int>(totalLength);
 
 	if (cache != nullptr) {
-		int targetSlot = -1;
-		for (int i = 0; i < CACHE_SIZE; i++) {
-			if (cache[i].distance < 0) {
-				targetSlot = i;
-				break;
-			}
-		}
+		int targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
 		if (targetSlot < 0) {
-			targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
-			if (targetSlot < 0) {
-				targetSlot += CACHE_SIZE;
-			}
+			targetSlot += CACHE_SIZE;
 		}
 
 		if (cache[targetSlot].path != nullptr) {
