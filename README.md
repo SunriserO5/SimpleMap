@@ -7,7 +7,7 @@
 - 最短路径计算（Dijkstra / A*）
 - 面向路况权重的扩展能力
 
-## 当前状态总览
+## 目标一览
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
@@ -19,33 +19,7 @@
 | 基础数据校验 | 已完成 | `isMapFullyConnected`、`isDataValid` |
 | JSON 持久化 | 已完成 | 支持保存/加载节点、边和元数据 |
 | CLI 交互界面 | 已完成 | 主菜单 + 路径测试子菜单 + 导入/生成双流程 |
-| 可视化界面 | 未完成 | 当前仓库仅后端算法与数据结构 |
-| 自动化测试 | 未完成 | 暂无测试工程 |
 
-## 本轮已收尾内容（2026-04-21）
-
-1. C++11 兼容性修复
-- 将 `parameters.h` 中缓存常量改为 C++11 可用定义。
-- 将 `pathfinding.cpp` 中结构化绑定改为 C++11 写法。
-
-2. 编译告警收敛
-- 处理了可见的未使用参数告警，减少编译噪音。
-
-3. `getPath` 占位逻辑补全
-- 不再返回直线距离占位值。
-- 改为调用 Dijkstra 并累加路径边长，不可达时返回 `-1`。
-
-4. 可运行演示入口
-- 新增 `main.cpp`，串联随机地图生成、Dijkstra/A*、JSON 保存与加载验证。
-
-5. CLI 交互体验增强
-- 主菜单支持：导入地图、生成随机地图并测试、退出。
-- 路径测试子菜单支持：测试 Dijkstra / 测试 A* / 返回。
-- 路径结果支持逐节点输出：每段距离与累计距离。
-
-6. 路径缓存接入
-- `getPath` 已接入缓存查询与回填逻辑。
-- 在 CLI 中可观察同一路径重复查询的耗时下降。
 
 ## 目录结构
 
@@ -55,9 +29,9 @@ SimpleMap/
 ├── dataStructure.cpp    # 图管理、地图生成、连通性与校验实现
 ├── pathfinding.h        # Dijkstra / A* 接口
 ├── pathfinding.cpp      # 路径规划与路况权重实现
-├── parameters.h         # 全局参数（CACHE_SIZE）
+├── parameters.h         # 全局参数（CACHE_SIZE）(我也不知道为啥要放在单独文件里，反正就放了)
 ├── main.cpp             # CLI 主入口（主菜单 + 路径测试子菜单）
-├── test_data_generator.cpp  # 测试数据生成器（默认可生成 1000 节点地图）
+├── test_data_generator.cpp  # 测试数据生成器（默认可生成 1000 节点地图,本文件算法由ai生成）
 ├── thirdparty/
 │   └── json.hpp         # nlohmann/json 头文件
 └── README.md
@@ -71,7 +45,7 @@ SimpleMap/
 - 每个节点维护动态邻接数组：`Neighbour` / `distanceToNeighbour`
 - 边属性数组：`EdgeAttr* edgeAttrs`
 
-这是一种“节点数组 + 邻接数组”的轻量实现，便于课程场景下理解与调试。
+这是一种“节点数组 + 邻接数组”的轻量实现，便于调试。
 
 ### 2) 地图生成策略
 
@@ -90,7 +64,7 @@ SimpleMap/
   - 纯长度模式：`length`
   - 路况模式：`c * L * f(n/v)`
 
-## 关键接口速览
+## 关键接口
 
 ### mapGraphBase
 
@@ -118,18 +92,16 @@ SimpleMap/
 
 ## 方案 A：Visual Studio 2022（推荐）
 
-1. 新建空 C++ 项目。
-2. 将仓库中的 `.h/.cpp` 添加到项目。
-3. 语言标准设为 C++11 或更高。
-4. 编译运行。
+1. 新建空 C++ 项目
+2. 将仓库中的 `.h/.cpp` 添加到项目
+3. 语言标准设为 C++11 或更高
+4. 编译运行
 
-## 方案 B：命令行快速语法检查
+## 方案 B：仓库自带的Makefile（Linux/Mac）
 
 ```bash
-clang++ -std=c++11 -Wall -Wextra -pedantic -c dataStructure.cpp pathfinding.cpp
+make
 ```
-
-说明：该命令仅做编译检查，不生成完整演示可执行文件。
 
 ## 方案 C：运行演示程序
 
@@ -140,26 +112,17 @@ clang++ -std=c++11 -Wall -Wextra -pedantic -c dataStructure.cpp pathfinding.cpp
 
 CLI 中可以：
 
-1. 导入已有地图 JSON 后做路径测试。
-2. 生成随机地图后进入路径测试子菜单。
-3. 输出 Dijkstra/A* 的路径节点详情、分段距离、累计距离与耗时。
+1. 导入已有地图 JSON 后做路径测试
+2. 生成随机地图后进入路径测试子菜单
+3. 输出 Dijkstra/A* 的路径节点详情、分段距离、累计距离与耗时
 
-运行过程中如果调用保存流程，会在项目根目录生成 `sample_map.json`。
+运行过程中如果调用保存流程，会在项目根目录生成 json文件
 
-## 方案 D：生成测试数据（1000 节点示例）
+## 注意
 
-```bash
-/usr/bin/g++ -std=c++11 -Wall -Wextra -pedantic -g dataStructure.cpp pathfinding.cpp test_data_generator.cpp -o test_data_generator
-./test_data_generator --nodes 1000 --output test_map_1000.json
-```
+1. 当前没有 UI 层，实现重点在数据结构和算法
+2. `getPath` 返回“路径总长度（int）”，缓存的目标是距离值而非完整节点序列；如需节点序列请使用 `PathFinder`
 
-## 已知限制
-
-1. 当前没有 UI 层，实现重点在数据结构和算法。
-2. `getPath` 返回“路径总长度（int）”，缓存的目标是距离值而非完整节点序列；如需节点序列请使用 `PathFinder`。
-
-## 建议下一步（未执行）
-
-1. 基于现有 CLI 增加更多回归用例（异常输入、不可达场景、边界节点）。
-2. 增加 JSON 兼容性与异常文件处理测试（字段缺失、类型错误、版本兼容）。
-3. 增加大规模（>=10000 节点）性能与内存基准测试。
+## 小组成员
+刘宜东 郑云祥
+2026.5
