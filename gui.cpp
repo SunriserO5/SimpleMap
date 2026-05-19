@@ -286,6 +286,7 @@ bool MapGUI::loadMap(const char* p) {
 	if (ok) {
 		m_traffic.init(&m_graph);
 		autoFit();
+		m_pathCache.clear();
 	}
 	return ok;
 }
@@ -295,6 +296,7 @@ bool MapGUI::loadRandomMap(int w, int h, int n) {
 	if (ok) {
 		m_traffic.init(&m_graph);
 		autoFit();
+		m_pathCache.clear();
 	}
 	return ok;
 }
@@ -304,6 +306,7 @@ bool MapGUI::loadGridMap(int w, int h, int c, int r) {
 	if (ok) {
 		m_traffic.init(&m_graph);
 		autoFit();
+		m_pathCache.clear();
 	}
 	return ok;
 }
@@ -427,6 +430,54 @@ void MapGUI::runPathfindingCompare(bool showDijkstra) {
 		return;
 	}
 
+	// 查缓存
+	int key = m_cacheKey(m_pathStart, m_pathEnd, m_useCongestion);
+	auto it = m_pathCache.find(key);
+	bool cacheHit = (it != m_pathCache.end() && it->second.valid);
+
+	if (cacheHit) {
+		// 缓存命中：测量缓存检索耗时，与首次计算时间对比
+		auto& entry = it->second;
+		if (showDijkstra) setPath(entry.dijkstraPath);
+		else              setPath(entry.aStarPath);
+
+		m_compareResult.hasResult = true;
+		m_compareResult.dijkstraNodes = (int)entry.dijkstraPath.size();
+		m_compareResult.aStarNodes = (int)entry.aStarPath.size();
+
+		auto c1 = std::chrono::steady_clock::now();
+		double dL = 0, dT = 0;
+		for (size_t i = 1; i < entry.dijkstraPath.size(); i++) {
+			auto* e = m_graph.getEdgeByNodes(entry.dijkstraPath[i - 1], entry.dijkstraPath[i]);
+			if (e) { dL += e->length; dT += PathFinder::getTravelTime(&m_graph, entry.dijkstraPath[i - 1], entry.dijkstraPath[i], m_useCongestion); }
+		}
+		double aL = 0, aT = 0;
+		for (size_t i = 1; i < entry.aStarPath.size(); i++) {
+			auto* e = m_graph.getEdgeByNodes(entry.aStarPath[i - 1], entry.aStarPath[i]);
+			if (e) { aL += e->length; aT += PathFinder::getTravelTime(&m_graph, entry.aStarPath[i - 1], entry.aStarPath[i], m_useCongestion); }
+		}
+		auto c2 = std::chrono::steady_clock::now();
+		double cachedMs = std::chrono::duration<double, std::milli>(c2 - c1).count();
+
+		m_compareResult.dijkstraMs = cachedMs;
+		m_compareResult.aStarMs = cachedMs;
+
+		char dB[256], aB[256];
+		const char* mode = m_useCongestion ? " (traffic)" : "";
+		snprintf(dB, 256, "Dijkstra%s: %d nodes | len %.0f | time %.2f | firstRun %.2fms → cached %.3fms",
+			mode, (int)entry.dijkstraPath.size(), dL, dT, entry.dijkstraMs, cachedMs);
+		snprintf(aB, 256, "A*%s:      %d nodes | len %.0f | time %.2f | firstRun %.2fms → cached %.3fms",
+			mode, (int)entry.aStarPath.size(), aL, aT, entry.aStarMs, cachedMs);
+		m_compareResult.dijkstraText = dB;
+		m_compareResult.aStarText = aB;
+
+		char cb[580];
+		snprintf(cb, 580, "%s  ||  %s", dB, aB);
+		setStatusText(cb);
+		return;
+	}
+
+	// 缓存未命中，计算
 	auto t1 = std::chrono::steady_clock::now();
 	auto dPath = PathFinder::dijkstra(&m_graph, m_pathStart, m_pathEnd, m_useCongestion);
 	auto t2 = std::chrono::steady_clock::now();
@@ -437,38 +488,43 @@ void MapGUI::runPathfindingCompare(bool showDijkstra) {
 	auto t4 = std::chrono::steady_clock::now();
 	double aMs = std::chrono::duration<double, std::milli>(t4 - t3).count();
 
+	// 存入缓存
+	PathCacheEntry entry;
+	entry.dijkstraPath = dPath;
+	entry.aStarPath = aPath;
+	entry.dijkstraMs = dMs;
+	entry.aStarMs = aMs;
+	entry.useCongestion = m_useCongestion;
+	entry.valid = true;
+	m_pathCache[key] = entry;
+
 	if (showDijkstra) setPath(dPath);
 	else              setPath(aPath);
 
 	double dL = 0, dT = 0;
 	for (size_t i = 1; i < dPath.size(); i++) {
 		auto* e = m_graph.getEdgeByNodes(dPath[i - 1], dPath[i]);
-		if (e) {
-			dL += e->length;
-			dT += PathFinder::getTravelTime(&m_graph, dPath[i - 1], dPath[i], m_useCongestion);
-		}
+		if (e) { dL += e->length; dT += PathFinder::getTravelTime(&m_graph, dPath[i - 1], dPath[i], m_useCongestion); }
 	}
 
 	double aL = 0, aT = 0;
 	for (size_t i = 1; i < aPath.size(); i++) {
 		auto* e = m_graph.getEdgeByNodes(aPath[i - 1], aPath[i]);
-		if (e) {
-			aL += e->length;
-			aT += PathFinder::getTravelTime(&m_graph, aPath[i - 1], aPath[i], m_useCongestion);
-		}
+		if (e) { aL += e->length; aT += PathFinder::getTravelTime(&m_graph, aPath[i - 1], aPath[i], m_useCongestion); }
 	}
 
 	m_compareResult.hasResult = true;
 	m_compareResult.dijkstraNodes = (int)dPath.size();
-	 m_compareResult.aStarNodes = (int)aPath.size();
+	m_compareResult.aStarNodes = (int)aPath.size();
 	m_compareResult.dijkstraMs = dMs;
 	m_compareResult.aStarMs = aMs;
 
 	char dB[256], aB[256];
-	snprintf(dB, 256, "Dijkstra: %d nodes | len %.0f | time %.2f | cpu %.2fms",
-		(int)dPath.size(), dL, dT, dMs);
-	snprintf(aB, 256, "A*:      %d nodes | len %.0f | time %.2f | cpu %.2fms",
-		(int)aPath.size(), aL, aT, aMs);
+	const char* mode = m_useCongestion ? " (traffic)" : "";
+	snprintf(dB, 256, "Dijkstra%s: %d nodes | len %.0f | time %.2f | cpu %.2fms",
+		mode, (int)dPath.size(), dL, dT, dMs);
+	snprintf(aB, 256, "A*%s:      %d nodes | len %.0f | time %.2f | cpu %.2fms",
+		mode, (int)aPath.size(), aL, aT, aMs);
 	m_compareResult.dijkstraText = dB;
 	m_compareResult.aStarText = aB;
 
@@ -527,7 +583,9 @@ void MapGUI::onButtonClick(int id) {
 				m_traffic.resume();
 				m_useCongestion = true;
 			}
-			setStatusText(m_traffic.isRunning() ? "Traffic ON" : "Traffic OFF");
+			m_pathCache.clear();  // 交通模式切换，缓存失效
+			setStatusText(m_traffic.isRunning() ? "Traffic ON (pathfinding uses travel time)"
+			                                    : "Traffic OFF (pathfinding uses distance)");
 			break;
 		}
 		case BTN_CLEAR: {
@@ -537,6 +595,7 @@ void MapGUI::onButtonClick(int id) {
 			m_f1Active = false;
 			m_f1Nodes.clear();
 			m_compareResult.hasResult = false;
+			m_pathCache.clear();
 			setStatusText("Cleared");
 			break;
 		}

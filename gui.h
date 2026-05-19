@@ -222,6 +222,20 @@ private:
 
     InputDialog m_inputDlg;
 
+    // 寻路缓存：key = (start<<16)|end, value = (dijkstraPath, aStarPath, useCongestion, result)
+    struct PathCacheEntry {
+        std::vector<int> dijkstraPath;
+        std::vector<int> aStarPath;
+        double dijkstraMs;
+        double aStarMs;
+        bool useCongestion;
+        bool valid;
+    };
+    std::map<int, PathCacheEntry> m_pathCache;
+    int m_cacheKey(int start, int end, bool useCongestion) const {
+        return ((start << 16) | end) ^ (useCongestion ? 0x80000000 : 0);
+    }
+
     int m_screenW, m_screenH;
 };
 
