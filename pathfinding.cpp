@@ -1,4 +1,4 @@
-#include "pathfinding.h"
+﻿#include "pathfinding.h"
 #include <queue>
 #include <vector>
 #include <climits>
@@ -6,36 +6,37 @@
 #include <algorithm>
 #include <functional>
 
-// 通行时间公式参数（来自 README）
+// F4 通行时间公式参数（题目要求）
 // travelTime = c * L * f(n/v)
-// f(x) = 1           当 x <= THRESHOLD
-// f(x) = 1 + E * x   当 x > THRESHOLD
-static constexpr double TRAFFIC_C = 1.0;
-static constexpr double TRAFFIC_THRESHOLD = 0.7;
-static constexpr double TRAFFIC_E = 0.5;
+// f(x) = 1                   当 x <= THRESHOLD
+// f(x) = 1 + e^(x - THRESHOLD) 当 x > THRESHOLD
+static constexpr double TRAFFIC_C = 0.1;      // 常数c（与 TrafficSimulator 保持一致）
+static constexpr double TRAFFIC_THRESHOLD = 0.7; // n/v 阈值
 
 double PathFinder::getTravelTime(mapGraphBase* graph, int fromID, int toID, bool useCongestion) {
 	EdgeAttr* edge = graph->getEdgeByNodes(fromID, toID);
 	if (edge == nullptr) return 1e18; // 不存在的边返回极大值
 
+	// 不考虑拥堵时，直接返回道路长度
 	if (!useCongestion) {
 		return edge->length;
 	}
 
 	double L = edge->length;
-	double v = edge->capacity;
+	double v = std::max(1.0, edge->capacity / 10.0);  // 容量缩小10倍，与 TrafficSimulator 保持一致
 	double n = edge->currentCars;
 
-	if (v <= 0) return L; // 防止除零
-
-	double x = n / v;
+	double x = n / v;  // n/v 负载率
 	double f;
 	if (x <= TRAFFIC_THRESHOLD) {
+		// 低负载：f(x) = 1
 		f = 1.0;
 	} else {
-		f = 1.0 + TRAFFIC_E * x;
+		// 高负载：f(x) = 1 + e^(x - threshold)
+		f = 1.0 + std::exp(x - TRAFFIC_THRESHOLD);
 	}
 
+	// F4: 通行时间 = c * L * f(n/v)
 	return TRAFFIC_C * L * f;
 }
 
@@ -57,6 +58,8 @@ std::vector<int> PathFinder::dijkstra(mapGraphBase* graph, int startId, int endI
 
 	// 小顶堆: (距离, 节点ID)
 	using pii = std::pair<double, int>;
+
+	//todo 可以改写成手搓的优先队列
 	std::priority_queue<pii, std::vector<pii>, std::greater<pii>> pq;
 	pq.push({0.0, startId});
 
@@ -107,11 +110,14 @@ std::vector<int> PathFinder::aStar(mapGraphBase* graph, int startId, int endId, 
 	int endX = nodes[endId].x_coordinate;
 	int endY = nodes[endId].y_coordinate;
 
-	// 启发函数：欧氏距离
+	// 启发函数：欧氏距离（按边权缩放因子校准）
+	// 拥堵模式下边权 = TRAFFIC_C * L * f(n/v)，最小为 TRAFFIC_C * L
+	// 因此启发式也需缩放 TRAFFIC_C 倍，保证可采纳性
+	double hScale = useCongestion ? TRAFFIC_C : 1.0;
 	auto heuristic = [&](int nodeID) -> double {
 		double dx = nodes[nodeID].x_coordinate - endX;
 		double dy = nodes[nodeID].y_coordinate - endY;
-		return std::sqrt(dx * dx + dy * dy);
+		return hScale * std::sqrt(dx * dx + dy * dy);
 	};
 
 	// gScore: 从起点到当前节点的实际代价

@@ -11,6 +11,7 @@
 #include<stdexcept>
 #include<vector>
 #include<algorithm>
+#include<ctime>
 
 using nlohmann::json;
 
@@ -55,6 +56,8 @@ void mapGraphBase::allocateMainGraphMemory(int nodeCount) {
 	m_allocatedNodeCount = nodeCount;
 	// edgeAttrs 初始分配 nodeCount*4 容量（预估平均每节点 4 条边）
 	// 实际边数可能超出，addOneWayEdge 中动态扩容
+
+	//todo
 	int initialEdgeCapacity = nodeCount * 4;
 	edgeAttrs = new EdgeAttr[initialEdgeCapacity];
 	m_allocatedEdgeCount = initialEdgeCapacity;
@@ -216,7 +219,7 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 		targetSlot += CACHE_SIZE;
 	}
 	if (cache != nullptr) {
-		if (cache[targetSlot].beginNodeID == nodeID1 && cache[targetSlot].endNodeID == nodeID2 && cache[targetSlot].distance >= 0)
+		if(cache[targetSlot].beginNodeID == nodeID1 && cache[targetSlot].endNodeID == nodeID2 && cache[targetSlot].distance >= 0)
 			return cache[targetSlot].distance;
 	}
 	/*if (cache != nullptr) {
@@ -233,6 +236,7 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	}
 
 	double totalLength = 0.0;
+	
 	for (size_t i = 1; i < path.size(); i++) {
 		EdgeAttr* edge = getEdgeByNodes(path[i - 1], path[i]);
 		if (edge == nullptr) {
@@ -244,11 +248,10 @@ int mapGraphBase::getPath(int nodeID1, int nodeID2) {
 	int resultDistance = static_cast<int>(totalLength);
 
 	if (cache != nullptr) {
-		int targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
+		targetSlot = (nodeID1 * 131 + nodeID2) % CACHE_SIZE;
 		if (targetSlot < 0) {
 			targetSlot += CACHE_SIZE;
 		}
-
 		if (cache[targetSlot].path != nullptr) {
 			delete[] cache[targetSlot].path;
 			cache[targetSlot].path = nullptr;
@@ -517,11 +520,22 @@ bool mapGraphBase::generateRandomMap(int mapWidth, int mapHeight, int totalNodeC
 	allocateMainGraphMemory(totalNodeCount);
 
 	// 生成随机节点，保证最小间距
-	const int MIN_DISTANCE = 10; // 最小节点间距
-	srand(42); // 固定种子，方便复现
+	// 自适应最小间距：确保能容纳 totalNodeCount 个节点
+	// 公式 = sqrt(面积 / (节点数*2))，上限60保证稀疏适中
+	int area = mapWidth * mapHeight;
+	int MIN_DISTANCE = (int)sqrt((double)area / (totalNodeCount * 2));
+	if (MIN_DISTANCE < 1) MIN_DISTANCE = 1;
+	if (MIN_DISTANCE > 60) MIN_DISTANCE = 60;
+	
+	// 只在首次调用时初始化随机种子
+	static bool seedInitialized = false;
+	if (!seedInitialized) {
+		srand((unsigned)time(nullptr));
+		seedInitialized = true;
+	}
 
 	int attempts = 0;
-	const int MAX_ATTEMPTS = totalNodeCount * 100;
+	const int MAX_ATTEMPTS = totalNodeCount * 500;
 
 	while (numOfNodes < totalNodeCount && attempts < MAX_ATTEMPTS) {
 		int x = rand() % mapWidth;
@@ -529,7 +543,8 @@ bool mapGraphBase::generateRandomMap(int mapWidth, int mapHeight, int totalNodeC
 
 		// 检查与已有节点的最小间距
 		bool tooClose = false;
-		for (int i = 0; i < numOfNodes; i++) {
+		int n = numOfNodes;
+		for (int i = 0; i < n; i++) {
 			if (calculateDistance(x, y, mainGraph[i].x_coordinate, mainGraph[i].y_coordinate) < MIN_DISTANCE) {
 				tooClose = true;
 				break;
@@ -540,6 +555,34 @@ bool mapGraphBase::generateRandomMap(int mapWidth, int mapHeight, int totalNodeC
 			addNode(x, y);
 		}
 		attempts++;
+	}
+
+	// --- 第二阶段：正常阶段没填满，用更宽松的间距继续添加 ---
+	if (numOfNodes < totalNodeCount) {
+		int relaxedMin = (MIN_DISTANCE > 3) ? MIN_DISTANCE / 2 : 1;
+		int extraAttempts = (totalNodeCount - numOfNodes) * 100;
+		for (int a = 0; a < extraAttempts && numOfNodes < totalNodeCount; a++) {
+			int x = rand() % mapWidth;
+			int y = rand() % mapHeight;
+			bool tooClose = false;
+			int nn = numOfNodes;
+			for (int i = 0; i < nn; i++) {
+				if (calculateDistance(x, y, mainGraph[i].x_coordinate, mainGraph[i].y_coordinate) < relaxedMin) {
+					tooClose = true;
+					break;
+				}
+			}
+			if (!tooClose) {
+				addNode(x, y);
+			}
+		}
+	}
+
+	// --- 第三阶段：强制填充剩余节点（无间距限制） ---
+	while (numOfNodes < totalNodeCount) {
+		int x = rand() % mapWidth;
+		int y = rand() % mapHeight;
+		addNode(x, y);
 	}
 
 	if (numOfNodes < 2) return false;

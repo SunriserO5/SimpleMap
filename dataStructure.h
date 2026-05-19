@@ -1,4 +1,4 @@
-#ifndef DATASTRUCTURE_H
+﻿#ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
 #include "parameters.h"
 
@@ -10,7 +10,7 @@ struct mapNode
     int numOfNeighbour;
     int* Neighbour;
     int* distanceToNeighbour;
-    mapNode(int id=-1,int x=-1,int y=-1,int /*neighbours*/=0){
+    mapNode(int id=-1,int x=-1,int y=-1,int /*neighbours*/=0){   //todo
         nodeID=id;
         x_coordinate=x;
         y_coordinate=y;
@@ -31,7 +31,7 @@ struct cacheNode{
         endNodeID=end;
         distance=dis;
         path=p;
-}
+    }
 };
 //边及其属性
 struct EdgeAttr {
@@ -87,7 +87,9 @@ public:
     EdgeAttr* getEdgeById(int edgeID);//ID访问边
     EdgeAttr* getEdgeByNodes(int fromID, int toID);//起点终点访问边
     EdgeAttr* getAllEdgeAttrs();
-    bool updateEdgeCongestion(int edgeID, double newCongestion);//更新路的拥堵程度
+
+    //todo
+    bool updateEdgeCongestion(int edgeID, double newCongestion);//更新路的拥堵程度 
 
     // 数据持久化
     bool saveMapToFile(const char* filePath);
@@ -109,6 +111,8 @@ private:
     void removeCrossingEdges();                  // 检测并删除交叉边
     void removeEdge(int edgeIndex);              // 按索引删除边
     void removeNeighbour(int nodeID, int neighbourID); // 从节点邻居列表中删除指定邻居
+
+    //todo
     bool segmentsIntersect(int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4); // 线段交叉检测
     void ensureConnectivity();                   // BFS 确保图连通，不连通则补连
 
